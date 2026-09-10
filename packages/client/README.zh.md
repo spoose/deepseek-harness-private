@@ -48,6 +48,7 @@ kind: "package-group"
 | [`resources/`](resources/README.zh.md) | 统一资源模型：`useResource` 会话标准钩子背后的协议提供方 | `ctx.resources` |
 | [`ui-sidebar-files/`](ui-sidebar-files/README.zh.md) | 右侧 Sidebar 的工作区文件树 tab 类型 | — |
 | [`ui-brand-official/`](ui-brand-official/README.zh.md) | 用官方名称与标记填充通用浏览器品牌 slot | — |
+| [`ui-brand-xone/`](ui-brand-xone/README.zh.md) | 用 xOne 身份填充侧栏与会话首屏品牌 slot | — |
 | [`ui-workspace/`](ui-workspace/README.zh.md) | 提供工作区选择与创建界面 | — |
 | [`ui-conversation/`](ui-conversation/README.zh.md) | 展示当前对话及其输入界面 | — |
 | [`ui-chat/`](ui-chat/README.zh.md) | 投影并渲染 Chat 对话 target | — |
@@ -72,6 +73,7 @@ kind: "package-group"
 | [`ui-settings/`](ui-settings/README.zh.md) | 承载设置界面及其扩展区域 | — |
 | [`ui-settings-general/`](ui-settings-general/README.zh.md) | 提供常规设置分区 | — |
 | [`ui-settings-models/`](ui-settings-models/README.zh.md) | 提供模型提供方配置与 DeepSeek 引导 | — |
+| [`ui-settings-token-usage/`](ui-settings-token-usage/README.zh.md) | 提供固定 Token 用量数据与持久化显示限额 | — |
 | [`ui-settings-plugin-inventory/`](ui-settings-plugin-inventory/README.zh.md) | 向「插件」设置贡献只读的 Host Loader 清单标签页 | — |
 | [`ui-deliverables/`](ui-deliverables/README.zh.md) | 生成已产出文件的轮次尾部与可点击的最终响应文件引用 | — |
 | [`ui-message-feedback/`](ui-message-feedback/README.zh.md) | 反馈界面：助手消息操作条中的逐消息赞踩，以及点赞、点踩与 `/feedback` 背后的反馈弹窗 | — |

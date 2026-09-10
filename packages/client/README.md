@@ -48,6 +48,7 @@ The kernel packages boot and serve the page; the UI feature packages present it.
 | [`resources/`](resources/README.md) | Unified resource model: protocol providers behind the `useResource` session standard hook | `ctx.resources` |
 | [`ui-sidebar-files/`](ui-sidebar-files/README.md) | Right-Sidebar workspace file tree tab type | — |
 | [`ui-brand-official/`](ui-brand-official/README.md) | Fills the generic browser-brand slots with the official name and marks | — |
+| [`ui-brand-xone/`](ui-brand-xone/README.md) | Fills the sidebar and conversation hero brand slots with the xOne identity | — |
 | [`ui-workspace/`](ui-workspace/README.md) | Provides workspace selection and creation surfaces | — |
 | [`ui-conversation/`](ui-conversation/README.md) | Presents the active conversation and its input surface | — |
 | [`ui-chat/`](ui-chat/README.md) | Projects and renders the Chat conversation target | — |
@@ -72,6 +73,7 @@ The kernel packages boot and serve the page; the UI feature packages present it.
 | [`ui-settings/`](ui-settings/README.md) | Hosts the settings interface and its extension areas | — |
 | [`ui-settings-general/`](ui-settings-general/README.md) | Provides the general settings section | — |
 | [`ui-settings-models/`](ui-settings-models/README.md) | Provides model-provider configuration and DeepSeek onboarding | — |
+| [`ui-settings-token-usage/`](ui-settings-token-usage/README.md) | Provides fixed Token Usage data with a durable display limit | — |
 | [`ui-settings-plugin-inventory/`](ui-settings-plugin-inventory/README.md) | Contributes the read-only Host Loader inventory tab to Plugins settings | — |
 | [`ui-deliverables/`](ui-deliverables/README.md) | Produces the produced-files turn tail and clickable final-response file references | — |
 | [`ui-message-feedback/`](ui-message-feedback/README.md) | The feedback surface: per-message Like/Dislike in the assistant-message action strip, and the feedback dialog behind both ratings and `/feedback` | — |
