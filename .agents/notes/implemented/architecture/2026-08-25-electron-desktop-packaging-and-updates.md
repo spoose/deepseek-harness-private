@@ -67,6 +67,8 @@ The renderer uses `nodeIntegration: false`, `contextIsolation: true`, and `sandb
 
 Desktop stops the Host before modifying its profile in place. Package failures retain partial changes for explicit repair; profile mutation and package-retry ownership follow the [in-place decision](2026-09-09-desktop-in-place-profile.md).
 
+Desktop composes one ordered built-in list for development and release: base, Web, then the xOne brand. The xOne layer disables the official brand, packaging verifies the brand entry points and the Web frontend brand images, and a profile whose built-in order no longer matches that list is reconciled instead of reused.
+
 The process-lifetime Electron lock is the authoritative Desktop owner. The package transaction lock is depth defense and records the process that can still mutate package state: Electron between package operations and the spawned pnpm PID while pnpm runs. The owner change is truncated, written, and synchronized through the already-open exclusive lock file. If Electron terminates during pnpm execution, a later process observes the live worker and refuses to start a competing package transaction; after that worker exits, the stale PID can be recovered.
 
 Core materialization, first launch, plugin installation, and shared-module resolution follow the [bundled-runtime decision](2026-09-08-desktop-bundled-runtime-and-external-plugins.md). The actual Host composes enabled desktop plugins contributing `dsh.client` code when it starts.

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  assertDesktopHostPackageFiles,
+  assertDesktopPackageFiles,
   selectDesktopPackageClosure,
   type PackedDesktopPackage,
 } from '../scripts/prepare-package-set.ts'
+import { DESKTOP_BRAND_RUNTIME_FILES, DESKTOP_HOST_PACKAGE, DESKTOP_HOST_RUNTIME_FILES } from '../src/core-package-set.ts'
 
 function packed(name: string, manifest: Record<string, unknown> = {}): PackedDesktopPackage {
   return { tarball: `${name}.tgz`, manifest: { name, version: '1.0.0', ...manifest } }
@@ -34,6 +35,8 @@ describe('desktop package-set selection', () => {
         peerDependencies: { '@deepseek-ai/cordis': '^1.0.0' },
       })],
       ['@deepseek-ai/cordis', packed('@deepseek-ai/cordis')],
+      ['@deepseek-ai/dsh-web-app', packed('@deepseek-ai/dsh-web-app')],
+      ['@deepseek-ai/dsh-client-ui-brand-xone', packed('@deepseek-ai/dsh-client-ui-brand-xone')],
       ['@deepseek-ai/platform-package', packed('@deepseek-ai/platform-package')],
       ['@deepseek-ai/unused', packed('@deepseek-ai/unused')],
     ])
@@ -41,7 +44,9 @@ describe('desktop package-set selection', () => {
       '@deepseek-ai/cordis',
       '@deepseek-ai/dsh',
       '@deepseek-ai/dsh-base',
+      '@deepseek-ai/dsh-client-ui-brand-xone',
       '@deepseek-ai/dsh-desktop-host',
+      '@deepseek-ai/dsh-web-app',
       '@deepseek-ai/platform-package',
     ])
   })
@@ -67,13 +72,30 @@ describe('desktop package-set selection', () => {
       'package/config/desktop.cordis.patch.yml',
     ]
     expect(() => {
-      assertDesktopHostPackageFiles(files)
+      assertDesktopPackageFiles(DESKTOP_HOST_PACKAGE, DESKTOP_HOST_RUNTIME_FILES, files)
     }).not.toThrow()
     expect(() => {
-      assertDesktopHostPackageFiles(files.slice(0, 1))
+      assertDesktopPackageFiles(DESKTOP_HOST_PACKAGE, DESKTOP_HOST_RUNTIME_FILES, files.slice(0, 1))
     }).toThrow(/desktop\.cordis\.patch\.yml/u)
     expect(() => {
-      assertDesktopHostPackageFiles(files.slice(1))
+      assertDesktopPackageFiles(DESKTOP_HOST_PACKAGE, DESKTOP_HOST_RUNTIME_FILES, files.slice(1))
     }).toThrow(/lib\/index\.js/u)
+  })
+
+  it('rejects a release without the xOne bundle even when dsh has no dependency on it', () => {
+    const names = ['@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host', '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app']
+    expect(() => selectDesktopPackageClosure(new Map(names.map(name => [name, packed(name)]))))
+      .toThrow(/omit @deepseek-ai\/dsh-client-ui-brand-xone/u)
+  })
+
+  it('requires every xOne entry point and image in the release tarballs', () => {
+    for (const [name, required] of Object.entries(DESKTOP_BRAND_RUNTIME_FILES)) {
+      const files = required.map(file => `package/${file}`)
+      expect(() => { assertDesktopPackageFiles(name, required, files) }).not.toThrow()
+      for (const missing of files) {
+        expect(() => { assertDesktopPackageFiles(name, required, files.filter(file => file !== missing)) })
+          .toThrow(`omits required file(s): ${missing}`)
+      }
+    }
   })
 })

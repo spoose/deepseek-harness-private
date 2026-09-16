@@ -23,9 +23,13 @@
 
 Electron 拥有 `$DSH_HOME/profiles/desktop`。其 `dependencies` 只包含已安装外部插件的精确版本；`dsh.profile.bundles` 包含内置 bundle，后接已启用插件。签名应用从 `resources/dsh` 提供 dsh、私有 Desktop Host 及其生产依赖。共享包链接解析到这些实际目录。宿主与插件在同一个内置上游 Node 进程中执行，使用正常的 realpath 解析；Desktop 不启用 `--preserve-symlinks`。CLI 不能启动或修改此 profile。
 
+内置 bundle 的顺序为 base、Web，然后 xOne 品牌；xOne 层会禁用官方品牌，打包会校验品牌入口点与 Web 前端品牌图片，因此安装无需注册表副本也能保留品牌。
+
 本地启动页提供启动状态和可用恢复操作；加载后的 dsh 渲染进程仅接收桌面协议标记。独立插件窗口接收结构化的列表、安装、删除、更新和更新检查操作；两个渲染进程都无法访问文件系统、原始 Electron IPC、shell 或任意 pnpm 参数。
 
 Electron 根据应用 locale 选择类型化的英文或中文桌面壳文案，并以英文作为 fallback。菜单、原生对话框、启动页与插件管理渲染进程使用同一 locale 数据；仓库的 Client UI i18n gate 会检查这些桌面源文件。
+
+在 macOS 上，应用菜单补充「关于」「服务」「隐藏」「隐藏其他」与「全部显示」，File 菜单提供「关闭窗口」；关闭窗口不会退出应用。
 
 ### 运行时与插件激活
 

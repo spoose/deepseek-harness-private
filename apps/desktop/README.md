@@ -23,9 +23,13 @@ The [Electron packaging and update Agent Note](../../.agents/notes/implemented/a
 
 Electron owns `$DSH_HOME/profiles/desktop`. Its `dependencies` contains only installed external plugins at exact versions; `dsh.profile.bundles` contains the built-in bundles followed by enabled plugins. The signed application supplies dsh, the private Desktop Host, and their production packages from `resources/dsh`. Shared package links resolve to those actual directories. Both host and plugins execute in the same bundled upstream Node process, with normal realpath resolution; Desktop does not enable `--preserve-symlinks`. The CLI cannot boot or mutate this profile.
 
+The built-in bundle order is base, Web, then the xOne brand; the xOne layer disables the official brand, and packaging verifies the brand entry points and the Web frontend brand images so an installation keeps the brand without a registry copy.
+
 The local startup page exposes startup status and available recovery actions; the loaded dsh renderer receives only the desktop protocol marker. The separate plugin window receives structured list, install, remove, update, and update-check operations; neither renderer receives filesystem access, raw Electron IPC, a shell, or arbitrary pnpm arguments.
 
 Electron chooses typed English or Chinese shell copy from its application locale and falls back to English. Menus, native dialogs, the startup page, and the plugin-management renderer use the same locale payload; the repository Client UI i18n gate checks these desktop sources.
+
+On macOS the application menu adds About, Services, Hide, Hide Others, and Show All, and the File menu provides Close Window; closing the window leaves the application running.
 
 ### Runtime and plugin activation
 

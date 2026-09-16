@@ -67,6 +67,8 @@ Electron 拥有 `.dsh/profiles/desktop` 保留 profile。[内置运行时决策]
 
 Desktop 在直接修改 profile 前停止 Host。包操作失败后保留部分修改，供显式修复；profile 修改和包重试的职责遵循[直接修改决策](2026-09-09-desktop-in-place-profile.zh.md)。
 
+Desktop 在开发与发布中使用同一条有序内置列表：base、Web，然后 xOne 品牌。xOne 层会禁用官方品牌，打包会校验品牌入口点与 Web 前端品牌图片，内置顺序不再匹配该列表的 profile 会被重新协调，而不是直接复用。
+
 进程生命周期 Electron 锁是 Desktop 的权威 owner。包事务锁用于纵深防御，并记录仍能修改包状态的进程：包操作之间记录 Electron，pnpm 运行期间记录已生成的 pnpm PID。Owner 变更通过已经打开的排他锁文件完成截断、写入与同步。如果 Electron 在 pnpm 执行期间终止，后续进程会发现仍存活的 worker，并拒绝启动并发的 包事务；该 worker 退出后，陈旧 PID 才可以恢复。
 
 核心物化、首次启动、插件安装和共享模块解析遵循[内置运行时决策](2026-09-08-desktop-bundled-runtime-and-external-plugins.zh.md)。实际 Host 启动时会组合已启用且提供 `dsh.client` 代码的桌面插件。

@@ -20,6 +20,7 @@ import {
 import { delimiter, dirname, join, resolve, sep } from 'node:path'
 import {
   DESKTOP_HOST_PACKAGE,
+  DESKTOP_PROFILE_BUNDLES,
   desktopCorePackageOverrides,
   verifyDesktopCorePackageSet,
 } from './core-package-set.ts'
@@ -80,7 +81,6 @@ export type DesktopProjectMutation =
 const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
-const DESKTOP_PROFILE_BUNDLES = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'] as const
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\nstrictDepBuilds: true\n'
 const PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9][a-z0-9._~-]*\/[a-z0-9][a-z0-9._~-]*|[a-z0-9][a-z0-9._~-]*)$/u
 const VERSION_PATTERN = /^[0-9A-Za-z][0-9A-Za-z.+_-]*$/u
@@ -166,12 +166,15 @@ function projectManifest(projectDir: string): DesktopProjectManifest {
   return manifest
 }
 
-function profilePluginNames(projectDir: string): readonly string[] {
+function profilePluginNames(
+  projectDir: string,
+  builtins: readonly string[] = DESKTOP_PROFILE_BUNDLES,
+): readonly string[] {
   const bundles = projectManifest(projectDir).dsh.profile.bundles
-  if (!DESKTOP_PROFILE_BUNDLES.every((bundle, index) => bundles[index] === bundle)) {
+  if (!builtins.every((bundle, index) => bundles[index] === bundle)) {
     throw new Error('desktop project: profile must begin with the built-in desktop bundle list')
   }
-  const plugins = bundles.slice(DESKTOP_PROFILE_BUNDLES.length)
+  const plugins = bundles.slice(builtins.length)
   if (new Set(bundles).size !== bundles.length) {
     throw new Error('desktop project: profile bundle list contains a duplicate package')
   }
@@ -388,6 +391,9 @@ export class DesktopProjectManager {
         if (this.currentRuntime().sharedPackages.some(entry => entry.name === requestedName)) {
           throw new Error(`desktop project: cannot install host-owned package ${requestedName}`)
         }
+        if (DESKTOP_PROFILE_BUNDLES.includes(requestedName)) {
+          throw new Error(`desktop project: ${JSON.stringify(requestedName)} is a built-in bundle`)
+        }
         await this.runPnpm(projectDir, ['add', mutation.spec, '--save-exact', '--ignore-scripts'])
         const installed = { ...inspectPlugin(projectDir, requestedName), enabled: true }
         const current = pluginRecords(projectDir).filter(plugin => plugin.name !== installed.name)
@@ -572,6 +578,11 @@ export class DesktopProjectManager {
 export function createRuntimeProjectMetadata(projectDir: string, release: DesktopRelease): void {
   mkdirSync(projectDir, { recursive: true, mode: 0o700 })
   const packageSet = verifyDesktopCorePackageSet(projectDir, release.version)
+  for (const name of DESKTOP_PROFILE_BUNDLES) {
+    if (!packageSet.packages.some(entry => entry.name === name)) {
+      throw new Error(`desktop seed: package set omits built-in bundle ${name}`)
+    }
+  }
   const manifest: DesktopProjectManifest = {
     name: PROJECT_NAME,
     private: true,

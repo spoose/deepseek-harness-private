@@ -9,8 +9,10 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeImage,
   protocol,
   type IpcMainInvokeEvent,
+  type MenuItemConstructorOptions,
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { DesktopProjectManager, type DesktopProjectHooks } from './project-manager.ts'
@@ -91,13 +93,30 @@ function developmentHostInspectPort(enabled: boolean): number | undefined {
   return port
 }
 
-function createWindow(preload: string, show = false): BrowserWindow {
+/**
+ * Resolve the application icon for an unpackaged development launch.
+ *
+ * electron-builder embeds `build/icon.png` into the packaged application, so a packaged launch
+ * reads its icon from the bundle. A development launch needs the same artwork explicitly: macOS
+ * takes it from the Dock, and every other platform reads it from the window options.
+ * @param applicationRoot - Directory holding the built shell beside its `build` resources.
+ * @returns Absolute icon path for window construction, or undefined for a packaged launch.
+ */
+function developmentIcon(applicationRoot: string): string | undefined {
+  if (app.isPackaged) return undefined
+  const icon = join(applicationRoot, 'build', 'icon.png')
+  if (process.platform === 'darwin') app.dock?.setIcon(nativeImage.createFromPath(icon))
+  return icon
+}
+
+function createWindow(preload: string, show = false, icon?: string): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 840,
     minWidth: 880,
     minHeight: 600,
     show,
+    ...(icon === undefined ? {} : { icon }),
     webPreferences: {
       preload,
       nodeIntegration: false,
@@ -219,6 +238,7 @@ async function main(): Promise<void> {
     publishBackend(backendState())
     if (state.phase === 'error') void navigateMain(startupUrl).catch((error: unknown) => { console.error(error) })
   })
+  const windowIcon = developmentIcon(app.getAppPath())
 
   const publishUpdate = (state: DesktopUpdateState): DesktopUpdateState => {
     updateState = state
@@ -430,7 +450,7 @@ async function main(): Promise<void> {
       pluginWindow.focus()
       return
     }
-    pluginWindow = createWindow(managementPreload)
+    pluginWindow = createWindow(managementPreload, false, windowIcon)
     pluginWindow.setSize(900, 620)
     pluginWindow.setTitle(messages.pluginWindowTitle)
     pluginWindow.once('ready-to-show', () => { pluginWindow?.show() })
@@ -438,23 +458,49 @@ async function main(): Promise<void> {
     void pluginWindow.loadURL(`${SCHEME}://shell/plugin-manager.html`)
   }
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{
-    label: process.platform === 'darwin' ? app.name : messages.application,
-    submenu: [
+  const customApplicationItems: MenuItemConstructorOptions[] = [
+    {
+      label: development === undefined ? messages.pluginsMenu : messages.pluginsMenuPackagedOnly,
+      accelerator: 'CmdOrCtrl+,',
+      enabled: true,
+      // enabled: development === undefined,
+      click: openPluginWindow,
+    },
+    { label: messages.checkUpdatesMenu, click: () => { void checkAndPrompt(true) } },
+  ]
+  const platformMenus: MenuItemConstructorOptions[] = process.platform === 'darwin'
+    ? [
       {
-        label: development === undefined ? messages.pluginsMenu : messages.pluginsMenuPackagedOnly,
-        accelerator: 'CmdOrCtrl+,',
-        enabled: development === undefined,
-        click: openPluginWindow,
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          ...customApplicationItems,
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
       },
-      { label: messages.checkUpdatesMenu, click: () => { void checkAndPrompt(true) } },
-      { type: 'separator' },
-      { role: 'quit' },
-    ],
-  }]))
+      { role: 'fileMenu' },
+    ]
+    : [{
+      label: messages.application,
+      submenu: [...customApplicationItems, { type: 'separator' }, { role: 'quit' }],
+    }]
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    ...platformMenus,
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+  ]))
 
   const createMainWindow = (): BrowserWindow => {
-    const window = createWindow(appPreload, true)
+    const window = createWindow(appPreload, true, windowIcon)
     mainWindow = window
     window.on('closed', () => { if (mainWindow === window) mainWindow = undefined })
     window.webContents.on('preload-error', (_event, _path, error) => {
