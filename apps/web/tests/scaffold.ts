@@ -304,8 +304,8 @@ export interface LaunchOptions {
    */
   extraOverlayPath?: string
   /**
-   * Additional package manifests whose dependency closures supply experimental
-   * profile layers named by {@link extraOverlayPath}.
+   * Additional installed bundle manifests, including their own plugin exports
+   * and dependency closures, for layers named by {@link extraOverlayPath}.
    */
   extraInstallAnchors?: string[]
   /**

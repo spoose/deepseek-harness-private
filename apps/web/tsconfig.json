@@ -26,6 +26,7 @@
     "tests/diff-context.e2e.ts",
     "tests/scaffold.ts",
     "tests/auto-review-fixture.ts",
+    "tests/desktop-brand.e2e.ts",
     "tests/scaffold-generation.spec.ts",
     "tests/scaffold-hermetic.e2e.ts",
     "tests/startup-rpc-budget.e2e.ts",
