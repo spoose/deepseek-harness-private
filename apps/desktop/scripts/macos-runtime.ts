@@ -21,10 +21,10 @@ function isMachO(path: string): boolean {
  * Sign and verify every materialized Mach-O file, awaiting all signers on failure.
  * @param root - Self-contained production runtime without symlinks.
  * @param appId - Release application identifier.
- * @param expected - Required signing identity.
+ * @param expected - Required release identity, or null for local ad-hoc signing.
  * @returns Number of signed native files.
  */
-export async function signMacOSRuntime(root: string, appId: string, expected: MacOSSigningEnvironment): Promise<number> {
+export async function signMacOSRuntime(root: string, appId: string, expected: MacOSSigningEnvironment | null): Promise<number> {
   const files = inventoryDesktopRuntime(root).map(file => file.path).filter(path => isMachO(join(root, path)))
   let next = 0
   const workers = Array.from({ length: Math.min(4, files.length) }, async () => {

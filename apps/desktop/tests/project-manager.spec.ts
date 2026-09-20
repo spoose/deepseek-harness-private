@@ -244,6 +244,27 @@ describe('desktop external plugin profile', () => {
     expect(JSON.parse(readFileSync(join(manager.paths.profile, 'package.json'), 'utf8'))).toMatchObject({ dependencies: {} })
   })
 
+  it('removes the retired xOne built-in bundle while preserving external plugins', async () => {
+    const { root, manager } = setup()
+    await manager.applyRelease()
+    await manager.mutate({ type: 'plugin-add', spec: 'plugin@1.0.0' }, hooks())
+    const manifestPath = join(manager.paths.profile, 'package.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      dsh: { profile: { bundles: string[] } }
+    }
+    manifest.dsh.profile.bundles.splice(2, 0, '@deepseek-ai/dsh-client-ui-brand-xone')
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, undefined, 2)}\n`)
+    const callCount = calls(root).length
+
+    await expect(manager.applyRelease()).resolves.toBe(true)
+    expect((JSON.parse(readFileSync(manifestPath, 'utf8')) as typeof manifest).dsh.profile.bundles).toEqual([
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', 'plugin',
+    ])
+    expect(manager.listPlugins()).toEqual([{ name: 'plugin', version: '1.0.0', enabled: true }])
+    expect(calls(root)).toHaveLength(callCount)
+    await expect(manager.applyRelease()).resolves.toBe(false)
+  })
+
   it('repairs a removed managed link without running pnpm', async () => {
     const { root, manager } = setup()
     await manager.applyRelease()

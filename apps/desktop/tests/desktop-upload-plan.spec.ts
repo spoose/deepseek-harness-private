@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createDesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'
 import { desktopUpdateMetadataFilename } from '../scripts/desktop-auto-update-environment.mjs'
-import type { DesktopPackageTargetName } from '../scripts/package-target.ts'
+import type { DesktopAutoUpdateTarget } from '../scripts/desktop-auto-update-environment.mjs'
 
 const temporaryDirectories: string[] = []
 const TEST_ORIGIN = 'https://desktop-updates.example.com'
@@ -24,7 +24,7 @@ function digest(contents: string): string {
 }
 
 async function fixture(
-  target: DesktopPackageTargetName,
+  target: DesktopAutoUpdateTarget,
   version = '1.2.3',
   environment: 'test' | 'production' = 'test',
 ): Promise<Fixture> {

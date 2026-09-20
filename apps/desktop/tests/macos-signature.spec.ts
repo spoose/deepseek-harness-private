@@ -10,6 +10,10 @@ import {
   assertMacOSRuntimeSignatureDetails,
   assertMacOSSignatureDetails,
 } from '../scripts/verify-macos-signature.mjs'
+import {
+  desktopElectronSwitchArguments,
+  resolveDesktopLinuxSoftwareRendering,
+} from '../src/linux-software-rendering.ts'
 
 const RELEASE_ENVIRONMENT = {
   DSH_DESKTOP_APP_ID: 'com.example.desktop',
@@ -113,10 +117,52 @@ describe('desktop macOS release signature', () => {
     })
   })
 
-  it('rejects unsigned macOS builds and malformed signing modes', async () => {
+  it('creates an unsigned Linux ARM64 DEB without updater metadata', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
-    expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1' }))
-      .toThrow(/unsigned builds require Windows/u)
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
+      DSH_DESKTOP_TARGET_PLATFORM: 'linux',
+      DSH_DESKTOP_TARGET_ARCH: 'arm64',
+      DSH_DESKTOP_UNSIGNED: '1',
+    }, 'linux', 'arm64')
+    expect(portablePath(config.directories.output)).toContain('/targets/linux-arm64/unsigned-artifacts')
+    const softwareRendering = resolveDesktopLinuxSoftwareRendering('linux')
+    expect(softwareRendering).toBeDefined()
+    expect(config.linux.executableArgs).toEqual(
+      desktopElectronSwitchArguments(softwareRendering?.switches ?? []),
+    )
+    expect(config).toMatchObject({
+      linux: {
+        category: 'Development',
+        executableName: 'deepseek-harness',
+        maintainer: 'DeepSeek AI',
+        syncDesktopName: true,
+        target: ['deb'],
+        vendor: 'DeepSeek AI',
+      },
+      publish: null,
+    })
+  })
+
+  it.each(['arm64', 'x64'])('builds local ad-hoc macOS %s applications without release credentials', async (arch) => {
+    const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_APP_ID: 'com.example.local', DSH_DESKTOP_UNSIGNED: '1',
+    }, 'darwin', arch)
+    expect(portablePath(config.directories.output)).toContain(`/targets/mac-${arch}/unsigned-artifacts`)
+    expect(config).toMatchObject({
+      mac: { identity: '-', forceCodeSigning: false, hardenedRuntime: false, notarize: false },
+      dmg: { sign: false }, publish: null,
+    })
+    await expect(config.afterSign({
+      electronPlatformName: 'darwin', appOutDir: '/local',
+      packager: { appInfo: { productFilename: 'DeepSeek Harness' } },
+    })).resolves.toBeUndefined()
+    expect(config.artifactBuildCompleted({ file: '/local.dmg' })).toBeUndefined()
+  })
+
+  it('rejects malformed signing modes', async () => {
+    const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
     expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: 'yes' }))
       .toThrow(/must be 0 or 1/u)
   })

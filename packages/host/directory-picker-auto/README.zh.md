@@ -86,6 +86,7 @@ kind: "package-reference"
 - [目录选择能力 seam 决策](../../../.agents/notes/archived/architecture/2026-07-28-directory-picker-capability-seam.md)——后端为何在交互形态上彼此不同。
 - [原生后端](../directory-picker-native/README.zh.md)——为本地操作者挂载的交互。
 - [浏览后端](../directory-picker-browse/README.zh.md)——在其他任何地方挂载的交互。
+- [Desktop 自适应选择器](../directory-picker-desktop/README.zh.md)——复用本探查且不依赖 webserver 的内嵌 renderer 适配器。
 
 -----
 

@@ -86,6 +86,7 @@ Read these when the chooser's contract is not enough: the seam definition first,
 - [Directory-picker capability seam decision](../../../.agents/notes/archived/architecture/2026-07-28-directory-picker-capability-seam.md) — why backends differ in interaction shape.
 - [Native backend](../directory-picker-native/README.md) — the interaction mounted for a local operator.
 - [Browse backend](../directory-picker-browse/README.md) — the interaction mounted everywhere else.
+- [Desktop adaptive picker](../directory-picker-desktop/README.md) — the embedded-renderer adapter that reuses this probe without a webserver.
 
 -----
 

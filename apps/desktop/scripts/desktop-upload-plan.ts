@@ -5,12 +5,12 @@ import { createReadStream } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { load } from 'js-yaml'
-import type { DesktopPackageTargetName } from './package-target.ts'
 import {
   desktopBuildRecordFilename,
   desktopUpdateMetadataFilename,
   resolveDesktopUploadConfig,
 } from './desktop-auto-update-environment.mjs'
+import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
 import { desktopTargetBuildPaths } from './desktop-build-paths.mjs'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
@@ -19,7 +19,7 @@ const TARGETS = {
   'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
   'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
   'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
-} as const satisfies Record<DesktopPackageTargetName, {
+} as const satisfies Record<DesktopAutoUpdateTarget, {
   readonly platform: NodeJS.Platform
   readonly arch: string
   readonly os: string
@@ -38,7 +38,7 @@ export interface DesktopUploadArtifact {
 /** A fully validated upload operation with channel metadata ordered last. */
 export interface DesktopUploadPlan {
   readonly environment: 'test' | 'production'
-  readonly target: DesktopPackageTargetName
+  readonly target: DesktopAutoUpdateTarget
   readonly version: string
   readonly publicUrl: string
   readonly bucket: string
@@ -170,7 +170,7 @@ function uploadArtifact(
  * @returns An upload plan whose mutable channel metadata is the final entry.
  */
 export async function createDesktopUploadPlan(
-  targetName: DesktopPackageTargetName,
+  targetName: DesktopAutoUpdateTarget,
   options: DesktopUploadPlanOptions = {},
 ): Promise<DesktopUploadPlan> {
   const target = TARGETS[targetName]

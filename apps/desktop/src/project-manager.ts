@@ -81,6 +81,7 @@ export type DesktopProjectMutation =
 const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
+const RETIRED_DESKTOP_BRAND_BUNDLE = '@deepseek-ai/dsh-client-ui-brand-xone'
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\nstrictDepBuilds: true\n'
 const PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9][a-z0-9._~-]*\/[a-z0-9][a-z0-9._~-]*|[a-z0-9][a-z0-9._~-]*)$/u
 const VERSION_PATTERN = /^[0-9A-Za-z][0-9A-Za-z.+_-]*$/u
@@ -164,6 +165,25 @@ function projectManifest(projectDir: string): DesktopProjectManifest {
     throw new Error('desktop project: plugin dependencies must use exact registry versions')
   }
   return manifest
+}
+
+/** Remove the retired xOne built-in bundle position while preserving external plugins. */
+function normalizeDesktopProfileBundles(projectDir: string): boolean {
+  const manifest = projectManifest(projectDir)
+  const bundles = manifest.dsh.profile.bundles
+  const retiredPrefix = [...DESKTOP_PROFILE_BUNDLES, RETIRED_DESKTOP_BRAND_BUNDLE]
+  if (!retiredPrefix.every((bundle, index) => bundles[index] === bundle)) return false
+  writeJson(join(projectDir, 'package.json'), {
+    ...manifest,
+    dsh: {
+      ...manifest.dsh,
+      profile: {
+        ...manifest.dsh.profile,
+        bundles: [...DESKTOP_PROFILE_BUNDLES, ...bundles.slice(retiredPrefix.length)],
+      },
+    },
+  } satisfies DesktopProjectManifest)
+  return true
 }
 
 function profilePluginNames(
@@ -314,8 +334,10 @@ export class DesktopProjectManager {
     return this.withLock(async () => {
       const target = this.readRuntime()
       this.descriptor = target
+      const profileMigrated = existsSync(join(this.paths.profile, 'package.json'))
+        && normalizeDesktopProfileBundles(this.paths.profile)
       const previous = readDesktopProfileState(this.paths.profile)
-      if (!existsSync(this.pendingPackages) && previous?.runtimeId === desktopRuntimeId(target)
+      if (!profileMigrated && !existsSync(this.pendingPackages) && previous?.runtimeId === desktopRuntimeId(target)
         && previous.lockHash === desktopPluginLockHash(this.paths.profile)
         && (this.runtime.profileResolution === 'runtime' || (previous.links.length === target.sharedPackages.length
           && previous.links.every(link => existsSync(link.target)

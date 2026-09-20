@@ -1,3 +1,5 @@
+import type { MacOSAfterSignContext } from './scripts/verify-macos-signature.mjs'
+
 /** Electron-builder fields asserted by the Desktop release tests. */
 export interface DesktopElectronBuilderConfig {
   readonly appId: string
@@ -24,10 +26,20 @@ export interface DesktopElectronBuilderConfig {
     readonly sign: boolean
     readonly writeUpdateInfo: boolean
   }
+  readonly linux: {
+    readonly category: string
+    readonly executableArgs: readonly string[]
+    readonly executableName: 'deepseek-harness'
+    readonly maintainer: string
+    readonly syncDesktopName: true
+    readonly target: readonly ['deb']
+    readonly vendor: string
+  }
   readonly nsis: {
     readonly include: string
   }
   readonly artifactBuildCompleted: (artifact: { readonly file: string }) => Promise<void> | undefined
+  readonly afterSign: (context: MacOSAfterSignContext) => Promise<void>
   readonly publish: readonly [{ readonly provider: 'generic', readonly url: string }] | null
 }
 

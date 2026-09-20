@@ -235,36 +235,46 @@ describe('loadProfile', () => {
       .toBe('live')
   })
 
-  it('normalizes only the exact installation-owned headless bundle tuple', () => {
+  it.each([
+    {
+      name: 'headless',
+      retired: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
+      current: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
+      patchReload: 'startup',
+    },
+    {
+      name: 'web',
+      retired: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-client-ui-brand-xone'],
+      current: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+      patchReload: 'live',
+    },
+  ] as const)('normalizes only the exact installation-owned $name bundle tuple', ({
+    name, retired, current, patchReload,
+  }) => {
     const anchor = stageInstallation({
       '@deepseek-ai/dsh-base': { patch: '[]\n' },
       '@deepseek-ai/dsh-web-app': { patch: '[]\n' },
       '@deepseek-ai/dsh-headless': { patch: '[]\n' },
+      '@deepseek-ai/dsh-client-ui-brand-xone': { patch: '[]\n' },
       'custom-bundle': { patch: '[]\n' },
     })
     const home = tmp()
-    const stock = resolveProfileDir('headless', home)
-    initProfile(stock, [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless',
-    ])
+    const stock = resolveProfileDir(name, home)
+    initProfile(stock, retired)
     const retiredManifest = readProfileManifest('t', stock)
     delete retiredManifest.dsh!.profile!.patchReload
     writeProfileManifest(stock, retiredManifest)
-    loadProfile('t', 'headless', anchor, home)
+    loadProfile('t', name, anchor, home)
     expect(readProfileManifest('t', stock).dsh?.profile).toEqual({
-      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
-      patchReload: 'startup',
+      bundles: current,
+      patchReload,
     })
 
     const customHome = tmp()
-    const custom = resolveProfileDir('headless', customHome)
-    initProfile(custom, [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
-    ])
-    loadProfile('t', 'headless', anchor, customHome)
-    expect(readProfileManifest('t', custom).dsh?.profile?.bundles).toEqual([
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
-    ])
+    const custom = resolveProfileDir(name, customHome)
+    initProfile(custom, [...retired, 'custom-bundle'])
+    loadProfile('t', name, anchor, customHome)
+    expect(readProfileManifest('t', custom).dsh?.profile?.bundles).toEqual([...retired, 'custom-bundle'])
   })
 
   it('adds a shipped reload default only to an exact stock tuple and preserves explicit choices', () => {

@@ -1,7 +1,7 @@
 /** Exercise filtered Desktop native and HTML dependencies under its bundled Node. */
 
 import assert from 'node:assert/strict'
-import { closeSync, mkdtempSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs'
+import { closeSync, mkdtempSync, openSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -64,19 +64,30 @@ async function checkPty() {
   }
 }
 
-/** fs-ext implements seek on Windows through SetFilePointerEx and on POSIX through lseek. */
-function checkFsExt() {
-  const fsExt = requireRuntime('fs-ext')
-  const file = join(scratch, 'seek.txt')
-  writeFileSync(file, 'abcdef', { flag: 'wx', mode: 0o600 })
-  const fd = openSync(file, 'r')
+/** POSIX sessions use the packaged system addon for exclusive file leases. */
+async function checkFlock() {
+  if (process.platform === 'win32') return // Windows session leases do not use POSIX flock.
+  const { tryLockExclusive } = requireRuntime('@deepseek-ai/node-addon-system/flock')
+  const file = join(scratch, 'session.lock')
+  const owner = openSync(file, 'wx', 0o600)
   try {
-    assert.equal(fsExt.seekSync(fd, 2, fsExt.constants.SEEK_SET), 2)
-    const bytes = Buffer.alloc(4)
-    assert.equal(readSync(fd, bytes, 0, bytes.length, null), 4)
-    assert.equal(bytes.toString(), 'cdef')
+    await tryLockExclusive(owner)
+    const contender = openSync(file, 'r+')
+    try {
+      await assert.rejects(tryLockExclusive(contender), error => (
+        error.syscall === 'flock' && ['EAGAIN', 'EWOULDBLOCK'].includes(error.code)
+      ))
+    } finally {
+      closeSync(contender)
+    }
   } finally {
-    closeSync(fd)
+    closeSync(owner)
+  }
+  const successor = openSync(file, 'r+')
+  try {
+    await tryLockExclusive(successor)
+  } finally {
+    closeSync(successor)
   }
 }
 
@@ -121,7 +132,7 @@ function checkHtml() {
 }
 
 try {
-  checkFsExt()
+  await checkFlock()
   checkKoffi()
   await checkSharp()
   checkHtml()
@@ -134,5 +145,5 @@ try {
 // Natural event-loop drain includes node-pty's worker and console-list helper teardown.
 process.once('beforeExit', () => {
   console.log(JSON.stringify({ node: process.versions.node, platform: process.platform, arch: process.arch,
-    fsExt: true, koffi: true, sharp: true, html: true, pty: true }))
+    flock: process.platform !== 'win32', koffi: true, sharp: true, html: true, pty: true }))
 })

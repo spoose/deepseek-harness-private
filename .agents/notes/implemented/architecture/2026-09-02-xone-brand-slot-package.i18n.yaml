@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-02-xone-brand-slot-package.md
-2026-09-02-xone-brand-slot-package.md: 9f0d69700c91142c91c2d453533ca7ce1220bcec
-2026-09-02-xone-brand-slot-package.zh.md: 1dd0d9238acbb04ae91a5ee659bd6e8f9c61accc
+2026-09-02-xone-brand-slot-package.md: e8a5cd5912da141178754c89ab2f80e13026523b
+2026-09-02-xone-brand-slot-package.zh.md: 96da76b89cec1b46becf4696a90db1db332ef8e3

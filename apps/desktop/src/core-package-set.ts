@@ -17,7 +17,6 @@ export const DESKTOP_HOST_PACKAGE = '@deepseek-ai/dsh-desktop-host'
 export const DESKTOP_PROFILE_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-base',
   '@deepseek-ai/dsh-web-app',
-  '@deepseek-ai/dsh-client-ui-brand-xone',
 ]
 
 /** Package-relative Desktop Host files required before a profile can boot. */
@@ -28,7 +27,7 @@ export const DESKTOP_HOST_RUNTIME_FILES = [
 
 /** Brand plugin entry points and Web assets required in an offline Desktop installation. */
 export const DESKTOP_BRAND_RUNTIME_FILES: Readonly<Record<string, readonly string[]>> = {
-  '@deepseek-ai/dsh-client-ui-brand-xone': ['lib/index.js', 'lib/client.js', 'cordis.patch.yml'],
+  '@deepseek-ai/dsh-client-ui-brand-xone': ['lib/index.js', 'lib/client.js'],
   '@deepseek-ai/dsh-web-frontend': ['dist/jushu-logo.svg', 'dist/bloub-nuage-attentif-bleu-anime.svg'],
 }
 

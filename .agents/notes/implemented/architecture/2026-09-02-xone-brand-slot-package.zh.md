@@ -4,6 +4,8 @@ Status: implemented
 
 [English](2026-09-02-xone-brand-slot-package.md) | 中文
 
+本文记录的独立 profile bundle 组合方式已由 [xOne 默认 Web 品牌决策](2026-09-20-xone-default-web-brand.zh.md)取代。包的 Slot 与资源所有权仍然有效。
+
 ## 问题
 
 xOne 部署需要与官方 Web 客户端不同的侧栏和空白会话品牌。修改 `ui-brand-official` 会使 xOne 行为依赖 `official` 客户端构建 profile，而修改侧栏或会话所有者则会把部署身份混入通用 UI 包。两种做法都会让上游改动覆盖本地品牌，并模糊部署身份的组合所有者。

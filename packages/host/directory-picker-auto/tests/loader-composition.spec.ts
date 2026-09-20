@@ -24,6 +24,7 @@ import {
   createLaunchEnvironmentSnapshot, DSH_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot,
 } from '@deepseek-ai/dsh-launch-environment'
 import * as DirectoryPickerAuto from '../src/index.ts'
+import * as DirectoryPickerDesktop from '../../directory-picker-desktop/src/index.ts'
 
 const renameControl = vi.hoisted(() => ({
   attempts: 0,
@@ -49,6 +50,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 })
 
 const AUTO = '@deepseek-ai/dsh-host-directory-picker-auto'
+const DESKTOP = '@deepseek-ai/dsh-host-directory-picker-desktop'
 const NATIVE = '@deepseek-ai/dsh-host-directory-picker-native'
 const BROWSE = '@deepseek-ai/dsh-host-directory-picker-browse'
 const NATIVE_SURFACE = '@deepseek-ai/dsh-client-ui-directory-picker-native'
@@ -93,16 +95,24 @@ afterEach(async () => {
 /** Write a two-row cordis.yml (webserver + chooser), then boot it through the real Loader. */
 async function loadComposition(
   bindHost: '127.0.0.1' | '0.0.0.0',
-  options: { failSurface?: boolean; launchEnvironment?: LaunchEnvironmentSnapshot } = {},
+  options: {
+    client?: 'web' | 'desktop'
+    failSurface?: boolean
+    launchEnvironment?: LaunchEnvironmentSnapshot
+  } = {},
 ): Promise<{ ctx: Context; configPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-directory-picker-auto-'))
   const configPath = join(root, 'cordis.yml')
+  const client = options.client ?? 'web'
+  const chooserPackage = client === 'desktop' ? DESKTOP : AUTO
   await writeFile(configPath, [
-    "- name: '@deepseek-ai/dsh-host-webserver'",
-    '  config:',
-    `    host: '${bindHost}'`,
-    '    port: 0',
-    `- name: '${AUTO}'`,
+    ...(client === 'web' ? [
+      "- name: '@deepseek-ai/dsh-host-webserver'",
+      '  config:',
+      `    host: '${bindHost}'`,
+      '    port: 0',
+    ] : []),
+    `- name: '${chooserPackage}'`,
     '',
   ].join('\n'))
 
@@ -114,6 +124,7 @@ async function loadComposition(
   const modules = new Map<string, unknown>([
     ['@deepseek-ai/dsh-host-webserver', HttpServer],
     [AUTO, DirectoryPickerAuto],
+    [DESKTOP, DirectoryPickerDesktop],
     [NATIVE, NativeDirectoryPicker],
     [BROWSE, BrowseDirectoryPicker],
     [NATIVE_SURFACE, surfaceModule(NATIVE_SURFACE)],
@@ -167,6 +178,18 @@ function stubAttendedHost(): void {
 }
 
 describe('real Loader composition', () => {
+  it('mounts for an embedded Desktop client without a webserver service', { timeout: 60_000 }, async () => {
+    vi.stubEnv('PATH', '')
+    vi.stubEnv('SSH_CONNECTION', '')
+    vi.stubEnv('SSH_TTY', '')
+    vi.stubEnv('DISPLAY', ':0')
+    const { ctx } = await loadComposition('127.0.0.1', { client: 'desktop' })
+
+    expect(ctx.get('webServer')).toBeUndefined()
+    const picker = ctx.get('directoryPicker') as DirectoryPicker
+    expect(picker.capability().kind).toBe(process.platform === 'linux' ? 'browse' : 'native')
+  })
+
   it.each(['project-env', 'user-env'] as const)('keeps the native backend with materialized SSH markers from %s', async (source) => {
     stubAttendedHost()
     vi.stubEnv('SSH_CONNECTION', 'stale-connection')
@@ -186,7 +209,6 @@ describe('real Loader composition', () => {
   it('mounts the native backend for an attended loopback host and unmounts it on disposal', { timeout: 60_000 }, async () => {
     stubAttendedHost()
     const { ctx, configPath } = await loadComposition('127.0.0.1')
-
     const unloaded = [...ctx.loader.entries()]
       .filter(entry => entry.fiber === undefined && !entry.disabled)
       .map(entry => entry.options.name)

@@ -109,16 +109,15 @@ function runCodeSign(args) {
  * Sign one Mach-O file embedded in the runtime tree.
  * @param {string} path - Writable standalone Mach-O file.
  * @param {string} identifier - Stable code-signing identifier derived from the release app ID and CAS digest.
- * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
+ * @param {{ signingIdentity: string, teamId: string } | null} expected - Release identity, or null for local ad-hoc signing.
  * @returns {Promise<void>} Resolves after codesign exits successfully.
  */
 export async function signMacOSRuntimeCode(path, identifier, expected) {
   await runAppleCommandAsync('/usr/bin/codesign', [
     '--force',
-    '--sign', expected.signingIdentity,
+    '--sign', expected === null ? '-' : expected.signingIdentity,
     '--identifier', identifier,
-    '--timestamp',
-    '--options', 'runtime',
+    ...(expected === null ? ['--timestamp=none'] : ['--timestamp', '--options', 'runtime']),
     path,
   ], 'codesign')
 }
@@ -126,12 +125,16 @@ export async function signMacOSRuntimeCode(path, identifier, expected) {
 /**
  * Verify one Mach-O file embedded in the runtime tree.
  * @param {string} path - Mach-O file to inspect.
- * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
+ * @param {{ signingIdentity: string, teamId: string } | null} expected - Release identity, or null for local ad-hoc signing.
  * @returns {void}
  */
 export function verifyMacOSRuntimeCode(path, expected) {
   runCodeSign(['--verify', '--strict', '--verbose=2', path])
   const details = runCodeSign(['--display', '--verbose=4', path])
+  if (expected === null) {
+    if (!/^Signature=adhoc$/mu.test(details)) throw new Error('desktop runtime: expected an ad-hoc signature')
+    return
+  }
   assertMacOSRuntimeSignatureDetails(details, expected)
 }
 

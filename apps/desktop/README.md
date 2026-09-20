@@ -23,7 +23,7 @@ The [Electron packaging and update Agent Note](../../.agents/notes/implemented/a
 
 Electron owns `$DSH_HOME/profiles/desktop`. Its `dependencies` contains only installed external plugins at exact versions; `dsh.profile.bundles` contains the built-in bundles followed by enabled plugins. The signed application supplies dsh, the private Desktop Host, and their production packages from `resources/dsh`. Shared package links resolve to those actual directories. Both host and plugins execute in the same bundled upstream Node process, with normal realpath resolution; Desktop does not enable `--preserve-symlinks`. The CLI cannot boot or mutate this profile.
 
-The built-in bundle order is base, Web, then the xOne brand; the xOne layer disables the official brand, and packaging verifies the brand entry points and the Web frontend brand images so an installation keeps the brand without a registry copy.
+The built-in bundle order is base, then Web. The Web bundle directly mounts the xOne client plugin and brings it into the production dependency closure; packaging verifies the brand entry points and the Web frontend brand images so an installation keeps the brand without a registry copy.
 
 The local startup page exposes startup status and available recovery actions; the loaded dsh renderer receives only the desktop protocol marker. The separate plugin window receives structured list, install, remove, update, and update-check operations; neither renderer receives filesystem access, raw Electron IPC, a shell, or arbitrary pnpm arguments.
 
@@ -55,6 +55,14 @@ Package transactions hold `$DSH_HOME/profiles/desktop/lock` exclusively through 
 pnpm run dev:desktop
 ```
 
+On a UOS or other Linux development host whose vendor VA-API driver crashes Electron during initialization, use the opt-in software-rendering launch:
+
+```sh
+pnpm run dev:desktop:uos
+```
+
+This command requires Linux. It sets `LIBVA_DRIVER_NAME=disabled` for the development process tree, selects X11 and GTK 3 for Electron, and disables GPU composition and accelerated video encoding and decoding. It does not disable the Chromium sandbox. The ordinary development command keeps Electron's defaults. The [UOS development launch decision](../../.agents/notes/implemented/process/2026-09-18-uos-software-rendering-development-launch.md) owns the compatibility tradeoff.
+
 Development Harness state defaults to `apps/desktop/.desktop-build/development/home`, the disposable npm project lives at `apps/desktop/.desktop-build/development/project`, and Electron browser data lives at `apps/desktop/.desktop-build/development/electron-user-data`. Sessions, settings, credentials, package links, and browser data therefore stay out of the user's normal Harness home. An explicit `DSH_HOME` replaces only the development Harness home. Renderer DevTools opens automatically; Main, Renderer, and dsh Host debugging listen on ports 9229, 9222, and 9230. `DSH_DESKTOP_MAIN_INSPECT_PORT`, `DSH_DESKTOP_RENDERER_DEBUG_PORT`, and `DSH_DESKTOP_HOST_INSPECT_PORT` replace those ports, while `DSH_DESKTOP_OPEN_DEVTOOLS=0` keeps the detached Renderer tools closed.
 
 After an explicit build, `start:desktop` reconstructs the disposable project and launches the existing artifacts without building again:
@@ -62,6 +70,8 @@ After an explicit build, `start:desktop` reconstructs the disposable project and
 ```sh
 pnpm run start:desktop
 ```
+
+Use `pnpm run start:desktop:uos` to combine the same UOS compatibility mode with an existing build.
 
 Workspace development runs the current CLI and private Desktop Host packages under the invoking Node.js and disables desktop package mutations. Its explicitly linked disposable profile is the only mode allowed to resolve bundles outside its own directory. Use an unpacked application to exercise the bundled Node.js, bundled pnpm, bundled dsh resources, plugin installation and repair paths.
 
@@ -89,10 +99,11 @@ Release automation uses fixed target commands so runtime preparation, dsh prepar
 ```sh
 pnpm run package:desktop:mac:arm64
 pnpm run package:desktop:mac:x64
+pnpm run package:desktop:linux:arm64
 pnpm run package:desktop:win:x64
 ```
 
-The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. Linux is not a supported Desktop release target.
+The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. The Linux arm64 command requires a native Linux ARM64 host and creates a local unsigned DEB; Linux automatic updates and release uploads are not supported.
 
 Each target owns its packed package inputs, prepared runtime, package set, dsh tree, pnpm preparation state, unpacked application, update metadata, and final artifacts under `apps/desktop/.desktop-build/targets/<target>/`. The Node.js archive cache remains shared under `.desktop-build/downloads` because every archive name includes its version, platform, and architecture and is verified before extraction. A target build never consumes another target's mutable preparation state.
 
@@ -100,7 +111,7 @@ Each target owns its packed package inputs, prepared runtime, package set, dsh t
 
 Production packages first pass through npm's publication rules and dependency installation. [Desktop's file policy](scripts/runtime-file-policy.ts) then filters the immutable `resources/dsh/node_modules` copy before signing and integrity sealing. It omits TypeScript declarations, recognized JavaScript/CSS/TypeScript source maps, TypeScript build caches, Domino's test directory, selected native compiler outputs, and node-pty prebuilds for other platforms. It preserves runtime JavaScript, native modules and their DLL/EXE helpers, WASM, unknown assets, licenses, and notices. The policy does not alter npm tarballs, the bundled package manager, or user-installed plugin files.
 
-The packaged application runs compiled JavaScript and pre-generated Typert metadata; it does not compile TypeScript plugins. Source-level debugger navigation and editor declarations remain available in development packages. [Copy-policy tests](tests/runtime-file-policy.spec.ts) cover exclusions and retained assets; `prepare:dsh` runs the [payload smoke](tests/fixtures/runtime-payload-smoke.mjs) under the bundled Node before the Host smoke and final inventory verification.
+The packaged application runs compiled JavaScript and pre-generated Typert metadata; it does not compile TypeScript plugins. Source-level debugger navigation and editor declarations remain available in development packages. [Copy-policy tests](tests/runtime-file-policy.spec.ts) cover exclusions and retained assets; `prepare:dsh` runs the [payload smoke](tests/fixtures/runtime-payload-smoke.mjs) under the bundled Node before the Host smoke and final inventory verification. On POSIX it checks session file-lock contention and release through the shipped system addon; it also exercises Koffi, Sharp, HTML conversion, and PTY execution.
 
 Windows release qualification also runs [native cleanup and replacement checks](scripts/smoke-windows.ps1) manually after the Desktop build. Set `$Electron` to the prepared Electron executable and `$Makensis`, `$SevenZip`, and `$PluginDir` to the pinned builder’s NSIS compiler, 7-Zip executable, and x86-unicode NSIS plugin directory. From the repository root, run the command below. It verifies Electron junction cleanup, installer scratch cleanup, and both locked-file replacement modes; it is not part of the unit-test lane.
 
@@ -133,11 +144,31 @@ pnpm run upload:mac:arm64
 
 Set `DSH_DESKTOP_AUTO_UPDATE_ENV=production` before packaging, then provide `DOWNLOAD_PROD_COS_BUCKET` and the production credential pair before running `upload:mac:arm64`, `upload:mac:x64`, or `upload:win:x64`. Packaging does not require a COS bucket or credentials. It explicitly disables electron-builder publishing, strips all four COS credential fields from its subprocesses, and writes a target completion record only after electron-builder and every signing or notarization hook succeeds. Upload requires that record to match the selected environment, target, public URL, and current dsh version; it also requires the root dsh version, Desktop version, channel metadata version, artifact names, sizes, and SHA-512 values to agree before it reads the selected COS credential pair. It uploads only that target's immutable versioned artifacts, uploads the version-derived channel metadata last with `no-cache`, and never deletes historical objects. Stable releases use `latest-mac.yml` or `latest.yml`; a prerelease such as `alpha` uses `alpha-mac.yml` or `alpha.yml`, matching electron-builder's emitted filename.
 
-The macOS configuration uses the required release environment instead of accepting whichever certificate appears first in a keychain. It rejects empty values, a malformed Team ID, a signing identity that includes electron-builder's unsupported `Developer ID Application:` prefix, and incomplete notarization credentials. macOS packaging requires the configured identity and its private key. Runtime preparation applies that identity, a secure timestamp, and hardened runtime to every embedded Mach-O file; after signing the application, a deep strict check rejects any other leaf authority or Team ID before artifact creation. The fixed-target macOS installer commands create separate copies of the signed application and run two artifact lanes concurrently. One lane notarizes and staples the App before generating the ZIP and its update metadata. The other encloses its signed App copy in a signed DMG, then notarizes, staples, and verifies the DMG; its inner App has no individually stapled ticket. Both lanes must finish successfully before their artifacts reach the final directory and the release completion record is written. Directory-only commands also require notarization credentials and wait for Apple notarization and App stapling. The [parallel notarization decision](../../.agents/notes/implemented/process/2026-09-09-parallel-macos-notarization.md) owns copy isolation and container ticket semantics. The private key can come from the login keychain or electron-builder's standard `CSC_LINK` input; ambient `CSC_NAME` and certificate discovery order do not select the release owner. Notary credentials may instead use electron-builder's complete Apple ID or keychain-profile strategy. The two macOS identity variables are also required when repeating the application check manually with `pnpm --dir apps/desktop run verify:mac-signature -- <path-to-app>`.
+The macOS configuration uses the required release environment instead of accepting whichever certificate appears first in a keychain. It rejects empty values, a malformed Team ID, a signing identity that includes electron-builder's unsupported `Developer ID Application:` prefix, and incomplete notarization credentials. Signed macOS packaging requires the configured identity and its private key. Runtime preparation applies that identity, a secure timestamp, and hardened runtime to every embedded Mach-O file; after signing the application, a deep strict check rejects any other leaf authority or Team ID before artifact creation. The fixed-target macOS installer commands create separate copies of the signed application and run two artifact lanes concurrently. One lane notarizes and staples the App before generating the ZIP and its update metadata. The other encloses its signed App copy in a signed DMG, then notarizes, staples, and verifies the DMG; its inner App has no individually stapled ticket. Both lanes must finish successfully before their artifacts reach the final directory and the release completion record is written. Signed directory-only commands also require notarization credentials and wait for Apple notarization and App stapling. The [parallel notarization decision](../../.agents/notes/implemented/process/2026-09-09-parallel-macos-notarization.md) owns copy isolation and container ticket semantics. The private key can come from the login keychain or electron-builder's standard `CSC_LINK` input; ambient `CSC_NAME` and certificate discovery order do not select the release owner. Notary credentials may instead use electron-builder's complete Apple ID or keychain-profile strategy. The two macOS identity variables are also required when repeating the application check manually with `pnpm --dir apps/desktop run verify:mac-signature -- <path-to-app>`.
 
 macOS signing visits real files without following Framework symlink aliases. PAK resources retain all shipped languages and are sealed by the enclosing Framework or application signature instead of receiving individual signatures. The [release policy](../../.agents/notes/implemented/architecture/2026-08-25-electron-desktop-packaging-and-updates.md) owns the dependency patch and verification requirements.
 
 Company proxies can accelerate uploads to Apple's notarization service. See the company internal documentation for configuration.
+
+### Local UOS ARM64 DEB
+
+On a native UOS ARM64 host, set a local reverse-DNS application ID and build the DEB:
+
+```sh
+DSH_DESKTOP_APP_ID=local.xone.desktop pnpm run package:desktop:linux:arm64
+```
+
+The installer is written to `.desktop-build/targets/linux-arm64/unsigned-artifacts/`. Use `package:desktop:linux:arm64:dir` to create only the unpacked application directory. A source ZIP without `.git` also needs `DSH_CLIENT_COMMIT_HASH=0000000`; that placeholder is for local validation only. The installed application automatically selects X11 and GTK 3, disables the incompatible VA-API and GPU paths, and falls back to the in-app directory browser when neither `zenity` nor `kdialog` is available. The DEB has no automatic-update metadata, signing, upload record, or upload command.
+
+### Local macOS application without a certificate
+
+On Apple Silicon, build a local application with an explicit app ID:
+
+```sh
+DSH_DESKTOP_APP_ID=local.xone.desktop pnpm run package:desktop:mac:arm64 --unsigned --dir
+```
+
+The application is written to `.desktop-build/targets/mac-arm64/unsigned-artifacts/mac-arm64/DeepSeek Harness.app`. This mode uses ad-hoc signatures for the application and its native runtime files, requires no Apple certificate or notarization credentials, and disables hardened runtime, notarization, and automatic updates. It creates no release completion record. It uses the packaged application's persistent Harness home, which defaults to `~/.dsh`; development data is not migrated automatically. This application is for local use and does not qualify as a signed, notarized release.
 
 ### Unsigned Windows test installer
 

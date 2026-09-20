@@ -35,7 +35,9 @@ describe('desktop package-set selection', () => {
         peerDependencies: { '@deepseek-ai/cordis': '^1.0.0' },
       })],
       ['@deepseek-ai/cordis', packed('@deepseek-ai/cordis')],
-      ['@deepseek-ai/dsh-web-app', packed('@deepseek-ai/dsh-web-app')],
+      ['@deepseek-ai/dsh-web-app', packed('@deepseek-ai/dsh-web-app', {
+        dependencies: { '@deepseek-ai/dsh-client-ui-brand-xone': '^1.0.0' },
+      })],
       ['@deepseek-ai/dsh-client-ui-brand-xone', packed('@deepseek-ai/dsh-client-ui-brand-xone')],
       ['@deepseek-ai/platform-package', packed('@deepseek-ai/platform-package')],
       ['@deepseek-ai/unused', packed('@deepseek-ai/unused')],
@@ -82,10 +84,17 @@ describe('desktop package-set selection', () => {
     }).toThrow(/lib\/index\.js/u)
   })
 
-  it('rejects a release without the xOne bundle even when dsh has no dependency on it', () => {
-    const names = ['@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host', '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app']
-    expect(() => selectDesktopPackageClosure(new Map(names.map(name => [name, packed(name)]))))
-      .toThrow(/omit @deepseek-ai\/dsh-client-ui-brand-xone/u)
+  it('rejects a release when the Web bundle\'s xOne dependency is absent', () => {
+    const available = new Map<string, PackedDesktopPackage>([
+      ['@deepseek-ai/dsh', packed('@deepseek-ai/dsh')],
+      ['@deepseek-ai/dsh-desktop-host', packed('@deepseek-ai/dsh-desktop-host')],
+      ['@deepseek-ai/dsh-base', packed('@deepseek-ai/dsh-base')],
+      ['@deepseek-ai/dsh-web-app', packed('@deepseek-ai/dsh-web-app', {
+        dependencies: { '@deepseek-ai/dsh-client-ui-brand-xone': '^1.0.0' },
+      })],
+    ])
+    expect(() => selectDesktopPackageClosure(available))
+      .toThrow(/dsh-web-app requires unpacked internal package @deepseek-ai\/dsh-client-ui-brand-xone/u)
   })
 
   it('requires every xOne entry point and image in the release tarballs', () => {

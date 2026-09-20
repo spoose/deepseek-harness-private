@@ -8,6 +8,7 @@ import {
   desktopBuildRecordFilename,
   resolveDesktopAutoUpdateConfig,
 } from './desktop-auto-update-environment.mjs'
+import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
 import { desktopTargetBuildPaths } from './desktop-build-paths.mjs'
 import { packageMacOSArtifacts, type DesktopPrepackagedArtifact } from './package-macos.ts'
 
@@ -28,18 +29,30 @@ const DESKTOP_UPLOAD_CREDENTIAL_ENV_NAMES = new Set([
 ])
 
 /** Fixed platform and architecture identifiers exposed by package scripts. */
-export type DesktopPackageTargetName = 'mac-arm64' | 'mac-x64' | 'win-x64'
+export type DesktopPackageTargetName = 'linux-arm64' | 'mac-arm64' | 'mac-x64' | 'win-x64'
 
 /** One supported release target and its electron-builder selectors. */
 export interface DesktopPackageTarget {
   readonly name: DesktopPackageTargetName
-  readonly platform: 'darwin' | 'win32'
+  readonly platform: 'darwin' | 'linux' | 'win32'
   readonly arch: 'arm64' | 'x64'
-  readonly builderPlatform: '--mac' | '--win'
+  readonly builderPlatform: '--linux' | '--mac' | '--win'
   readonly builderArch: '--arm64' | '--x64'
 }
 
+type DesktopReleasePackageTarget = DesktopPackageTarget & {
+  readonly name: DesktopAutoUpdateTarget
+  readonly platform: 'darwin' | 'win32'
+}
+
 const TARGETS: Record<DesktopPackageTargetName, DesktopPackageTarget> = {
+  'linux-arm64': {
+    name: 'linux-arm64',
+    platform: 'linux',
+    arch: 'arm64',
+    builderPlatform: '--linux',
+    builderArch: '--arm64',
+  },
   'mac-arm64': {
     name: 'mac-arm64',
     platform: 'darwin',
@@ -76,7 +89,7 @@ export function withoutWindowsSigningEnvironment(environment: NodeJS.ProcessEnv)
 /**
  * Select signing and NSIS-compatible archive filters for electron-builder.
  * @param environment - Target packaging environment.
- * @param unsigned - Whether to create a local unsigned Windows artifact.
+ * @param unsigned - Whether to create a local artifact without release credentials.
  * @returns Packaging environment without certificate inputs for unsigned builds.
  */
 export function desktopElectronBuilderEnvironment(environment: NodeJS.ProcessEnv, unsigned: boolean): NodeJS.ProcessEnv {
@@ -86,7 +99,7 @@ export function desktopElectronBuilderEnvironment(environment: NodeJS.ProcessEnv
   if (!unsigned) return selected
   return {
     ...Object.fromEntries(Object.entries(withoutWindowsSigningEnvironment(selected))
-      .filter(([name]) => !/^(?:WIN_)?CSC_/iu.test(name))),
+      .filter(([name]) => !/^(?:(?:WIN_)?CSC_|APPLE_|DSH_DESKTOP_MACOS_)/iu.test(name))),
     CSC_IDENTITY_AUTO_DISCOVERY: 'false',
     DSH_DESKTOP_UNSIGNED: '1',
   }
@@ -115,7 +128,7 @@ function packageVersion(path: string, label: string): string {
 }
 
 function writeReleaseRecord(
-  target: DesktopPackageTarget,
+  target: DesktopReleasePackageTarget,
   environment: NodeJS.ProcessEnv,
   artifactsRoot: string,
 ): void {
@@ -137,6 +150,10 @@ function writeReleaseRecord(
   renameSync(temporaryPath, recordPath)
 }
 
+function isReleasePackageTarget(target: DesktopPackageTarget): target is DesktopReleasePackageTarget {
+  return target.platform !== 'linux'
+}
+
 /**
  * Resolve a named release target and reject hosts that cannot execute its packaged runtime.
  * @param name - One of the fixed Desktop release target names.
@@ -155,6 +172,9 @@ export function resolveDesktopPackageTarget(
   const target = TARGETS[name]
   if (target.platform === 'win32' && (hostPlatform !== 'win32' || hostArch !== 'x64')) {
     throw new Error('desktop package: win-x64 requires a Windows x64 build host')
+  }
+  if (target.platform === 'linux' && (hostPlatform !== 'linux' || hostArch !== 'arm64')) {
+    throw new Error('desktop package: linux-arm64 requires a Linux ARM64 build host')
   }
   if (target.platform === 'darwin' && hostPlatform !== 'darwin') {
     throw new Error(`desktop package: ${name} requires a macOS build host`)
@@ -204,10 +224,13 @@ export function parseDesktopPackageInvocation(
   })
   if (positionals.length > 1) throw new Error('desktop package: expected at most one target')
   const name = positionals[0] ?? hostTargetName(hostPlatform, hostArch)
-  if (values.unsigned && name !== 'win-x64') throw new Error('desktop package: --unsigned requires win-x64')
   if (values.unsigned && values['prepare-only']) throw new Error('desktop package: --unsigned cannot use --prepare-only')
+  const target = resolveDesktopPackageTarget(name, hostPlatform, hostArch)
+  if (target.platform === 'linux' && !values.unsigned && !values['prepare-only']) {
+    throw new Error('desktop package: linux-arm64 currently supports local unsigned packaging only')
+  }
   return {
-    target: resolveDesktopPackageTarget(name, hostPlatform, hostArch),
+    target,
     directory: values.dir,
     prepareOnly: values['prepare-only'],
     unsigned: values.unsigned,
@@ -272,12 +295,17 @@ async function main(): Promise<void> {
   const invocation = parseDesktopPackageInvocation(process.argv.slice(2))
   const { target } = invocation
   const buildPaths = desktopTargetBuildPaths(target.name)
-  const releaseRecordPath = join(buildPaths.artifacts, desktopBuildRecordFilename(target.name))
+  const releaseRecordPath = isReleasePackageTarget(target)
+    ? join(buildPaths.artifacts, desktopBuildRecordFilename(target.name))
+    : undefined
   if (!invocation.prepareOnly && !invocation.unsigned) {
+    if (releaseRecordPath === undefined) throw new Error('desktop package: Linux release records are not supported')
     rmSync(releaseRecordPath, { force: true })
     rmSync(`${releaseRecordPath}.tmp`, { force: true })
   }
-  const buildEnv = withoutWindowsSigningEnvironment(withoutDesktopUploadCredentials(process.env))
+  const buildEnv = desktopElectronBuilderEnvironment(
+    withoutWindowsSigningEnvironment(withoutDesktopUploadCredentials(process.env)), invocation.unsigned,
+  )
   const targetEnv: NodeJS.ProcessEnv = {
     ...buildEnv,
     DSH_DESKTOP_TARGET_PLATFORM: target.platform,
@@ -311,7 +339,7 @@ async function main(): Promise<void> {
   await runPnpm(['run', 'prepare:packages'], targetEnv)
   await runPnpm(['run', 'prepare:dsh'], targetEnv)
   if (invocation.prepareOnly) return
-  if (target.platform === 'darwin' && !invocation.directory) {
+  if (target.platform === 'darwin' && !invocation.directory && !invocation.unsigned) {
     await runPnpm([
       ...desktopElectronBuilderArguments(target, true),
       '--config.mac.notarize=false',
@@ -325,7 +353,10 @@ async function main(): Promise<void> {
   } else {
     await runPnpm(desktopElectronBuilderArguments(target, invocation.directory), electronBuilderEnv)
   }
-  if (!invocation.directory && !invocation.unsigned) writeReleaseRecord(target, electronBuilderEnv, buildPaths.artifacts)
+  if (!invocation.directory && !invocation.unsigned) {
+    if (!isReleasePackageTarget(target)) throw new Error('desktop package: Linux release records are not supported')
+    writeReleaseRecord(target, electronBuilderEnv, buildPaths.artifacts)
+  }
 }
 
 if (process.argv[1] !== undefined && import.meta.filename === resolve(process.argv[1])) await main()

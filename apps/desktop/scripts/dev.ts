@@ -8,6 +8,10 @@ import { parseArgs } from 'node:util'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import type { DesktopRelease } from '../src/release.ts'
 import { prepareDevelopmentProject } from './development-project.ts'
+import {
+  resolveDesktopDevelopmentElectronOverrides,
+  type DesktopDevelopmentElectronOverrides,
+} from './development-electron.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -53,7 +57,7 @@ async function runPackageScript(script: string, cwd: string): Promise<void> {
   await run(process.execPath, [packageManager, 'run', script], cwd)
 }
 
-async function launchElectron(): Promise<void> {
+async function launchElectron(overrides: DesktopDevelopmentElectronOverrides): Promise<void> {
   const require = createRequire(import.meta.url)
   const electron: unknown = require('electron')
   if (typeof electron !== 'string') throw new Error('desktop development: electron executable is unavailable')
@@ -64,6 +68,7 @@ async function launchElectron(): Promise<void> {
   const userData = join(DEVELOPMENT_ROOT, 'electron-user-data')
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
+    ...overrides.environment,
     DSH_HOME: home,
     DSH_DESKTOP_HOST_INSPECT_PORT: String(hostPort),
     DSH_DESKTOP_NODE_BINARY: process.execPath,
@@ -76,12 +81,19 @@ async function launchElectron(): Promise<void> {
     `--inspect=127.0.0.1:${String(mainPort)}`,
     `--remote-debugging-port=${String(rendererPort)}`,
     `--user-data-dir=${userData}`,
+    ...overrides.args,
     APP_ROOT,
   ], APP_ROOT, environment)
 }
 
 async function main(): Promise<void> {
-  const { values } = parseArgs({ options: { 'skip-build': { type: 'boolean', default: false } } })
+  const { values } = parseArgs({
+    options: {
+      'skip-build': { type: 'boolean', default: false },
+      'linux-software-rendering': { type: 'boolean', default: false },
+    },
+  })
+  const overrides = resolveDesktopDevelopmentElectronOverrides(values['linux-software-rendering'])
   if (!values['skip-build']) {
     await runPackageScript('build', REPOSITORY_ROOT)
     await runPackageScript('build', APP_ROOT)
@@ -108,7 +120,7 @@ async function main(): Promise<void> {
     dependencyDir: join(REPOSITORY_ROOT, 'node_modules', '.pnpm', 'node_modules'),
     release,
   })
-  await launchElectron()
+  await launchElectron(overrides)
 }
 
 main().catch((error: unknown) => {

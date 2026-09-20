@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/client/ui-brand-xone/README.md
-README.md: 9f4df704884b032338b37fd0a4437a8490a86aac
-README.zh.md: 41302885e74cc6342a154bf32307713629f9de45
+README.md: d9d3c8b0a3aa7d5e6106e9e440bfde97f1833427
+README.zh.md: 53ce76373a9a704f8544ddb63a4bf9b075a7de1b

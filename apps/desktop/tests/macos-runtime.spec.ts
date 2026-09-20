@@ -46,3 +46,11 @@ it('awaits other signers before rejecting and permitting output cleanup', async 
   expect(await result).toBeInstanceOf(AggregateError)
   expect(verifyMacOSRuntimeCode).toHaveBeenCalledWith(join(path, 'b.node'), identity)
 })
+
+it('seals local runtime code with ad-hoc signatures before inventory hashing', async () => {
+  const path = root()
+  writeFileSync(join(path, 'addon.node'), Buffer.from('cffaedfe00000000', 'hex'))
+  await expect(signMacOSRuntime(path, 'com.example.local', null)).resolves.toBe(1)
+  expect(signMacOSRuntimeCode).toHaveBeenCalledWith(join(path, 'addon.node'), expect.any(String), null)
+  expect(verifyMacOSRuntimeCode).toHaveBeenCalledWith(join(path, 'addon.node'), null)
+})

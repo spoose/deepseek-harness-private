@@ -4,6 +4,8 @@ Status: implemented
 
 English | [中文](2026-09-02-xone-brand-slot-package.zh.md)
 
+The separate profile-bundle composition recorded here is superseded by the [default xOne Web brand decision](2026-09-20-xone-default-web-brand.md). The package's Slot and asset ownership remains current.
+
 ## Problem
 
 An xOne deployment needs different sidebar and blank-conversation branding from the official Web client. Editing `ui-brand-official` makes xOne behavior depend on the `official` client build profile, while editing the sidebar or conversation owners mixes deployment identity into generic UI packages. Either approach makes upstream changes overwrite local branding and obscures which composition owns the deployed identity.

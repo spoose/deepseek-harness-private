@@ -1,21 +1,16 @@
-/** Keyless browser evidence for Desktop's built-in brand layer over the shared Web composition. */
+/** Keyless browser evidence for the xOne brand in the shared Web composition. */
 import { fileURLToPath } from 'node:url'
-import { join } from 'node:path'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 import { DESKTOP_PROFILE_BUNDLES } from '../../desktop/src/core-package-set.ts'
 import { compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { newEnglishPage } from './support.ts'
 
-it('renders the Desktop xOne brand with both packaged images', async () => {
+it('renders the default xOne brand with both packaged images', async () => {
   expect(DESKTOP_PROFILE_BUNDLES).toEqual([
-    '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-client-ui-brand-xone',
+    '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
   ])
-  const brandRoot = fileURLToPath(new URL('../../../packages/client/ui-brand-xone/', import.meta.url))
-  const scaffold = await launchWebScaffold({
-    extraOverlayPath: join(brandRoot, 'cordis.patch.yml'),
-    extraInstallAnchors: [join(brandRoot, 'package.json')],
-  })
+  const scaffold = await launchWebScaffold()
   try {
     const browser = await chromium.launch()
     try {

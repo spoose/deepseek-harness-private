@@ -24,6 +24,16 @@ import { claimDesktopSingleInstance } from './single-instance.ts'
 import { DesktopUpdateCoordinator } from './update-coordinator.ts'
 import { desktopErrorState } from './startup-error.ts'
 import { startupFailureDocument } from './startup-document.ts'
+import { resolveDesktopLinuxSoftwareRendering } from './linux-software-rendering.ts'
+
+if (app.isPackaged) {
+  const softwareRendering = resolveDesktopLinuxSoftwareRendering()
+  if (softwareRendering !== undefined) {
+    Object.assign(process.env, softwareRendering.environment)
+    for (const { name, value } of softwareRendering.switches) app.commandLine.appendSwitch(name, value)
+    app.disableHardwareAcceleration()
+  }
+}
 
 const SCHEME = 'dsh-app'
 let focusPrimaryWindow = (): void => {}

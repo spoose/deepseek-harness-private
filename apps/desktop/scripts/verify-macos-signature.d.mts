@@ -18,21 +18,21 @@ export function assertMacOSRuntimeSignatureDetails(details: string, expected: Ma
  * Sign one Mach-O file embedded in the runtime tree.
  * @param path - Writable standalone Mach-O file.
  * @param identifier - Stable code-signing identifier derived from the release app ID and CAS digest.
- * @param expected - Public release identity.
+ * @param expected - Release identity, or null for local ad-hoc signing.
  * @returns Resolves after codesign exits successfully.
  */
 export function signMacOSRuntimeCode(
   path: string,
   identifier: string,
-  expected: MacOSSigningEnvironment,
+  expected: MacOSSigningEnvironment | null,
 ): Promise<void>
 
 /**
  * Verify one Mach-O file embedded in the runtime tree.
  * @param path - Mach-O file to inspect.
- * @param expected - Public release identity.
+ * @param expected - Release identity, or null for local ad-hoc signing.
  */
-export function verifyMacOSRuntimeCode(path: string, expected: MacOSSigningEnvironment): void
+export function verifyMacOSRuntimeCode(path: string, expected: MacOSSigningEnvironment | null): void
 
 /**
  * Verify the full application signature and its release owner.

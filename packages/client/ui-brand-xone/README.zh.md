@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-本包为 Web 客户端应用 xOne 身份。它在侧栏显示 xOne 图标与产品名称，并在空白会话显示 Bloub 动画图像与 xOne 标题。xOne 部署应选择本包而非官方品牌包；本包没有配置，也没有模型可见影响。
+本包为 Web 客户端应用 xOne 身份。它在侧栏显示 xOne 图标与产品名称，并在空白会话显示 Bloub 动画图像与 xOne 标题。`dsh-web-app` 默认挂载本包；本包没有配置，也没有模型可见影响。
 
 ## 目录
 
@@ -25,14 +25,14 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-在 Web bundle 之后加入本包。本包同时携带浏览器插件与 profile patch；patch 先禁用官方品牌配置行，再插入 xOne。
+`dsh-web-app` 直接依赖本包，并把它作为普通浏览器插件挂载：
 
-```sh
-pnpm dsh plugin --profile xone-web add ./packages/bundle/web-app ./packages/client/ui-brand-xone
-pnpm dsh --profile xone-web
+```yaml
+- id: ui-brand-xone
+  name: '@deepseek-ai/dsh-client-ui-brand-xone'
 ```
 
-本插件不接受配置。Web 应用必须从 public 根目录提供 `/jushu-logo.svg` 与 `/bloub-nuage-attentif-bleu-anime.svg`。
+本插件不接受配置。其他 Web 组合也可以直接挂载同一配置行，但其应用必须从 public 根目录提供 `/jushu-logo.svg` 与 `/bloub-nuage-attentif-bleu-anime.svg`。
 
 -----
 
@@ -42,7 +42,7 @@ pnpm dsh --profile xone-web
 <details>
 <summary>实现内部机制——点击展开</summary>
 
-Profile patch 禁用 `ui-brand-official`，并以 `ui-brand-xone` 插入本包。浏览器侧注册 `brand.xone` locale 字典，等待 `sidebar.brand.mark`、`sidebar.brand.name`、`conversation.hero.brand.mark` 与 `conversation.hero.brand.title`，随后在同一个 Cordis effect 下注册四个填充项。声明移除或插件卸载会撤回整组填充项。Node 侧是无行为的 Loader 席位，图片文件保留为 Web 应用资源，而不写入 JavaScript bundle 数据。
+默认 Web bundle 以 `ui-brand-xone` 插入本包。浏览器侧注册 `brand.xone` locale 字典，等待 `sidebar.brand.mark`、`sidebar.brand.name`、`conversation.hero.brand.mark` 与 `conversation.hero.brand.title`，随后在同一个 Cordis effect 下注册四个填充项。声明移除或插件卸载会撤回整组填充项。Node 侧是无行为的 Loader 席位，图片文件保留为 Web 应用资源，而不写入 JavaScript bundle 数据。
 
 </details>
 
@@ -71,7 +71,6 @@ Profile patch 禁用 `ui-brand-official`，并以 `ui-brand-xone` 插入本包�
 <a id="known-limitations-and-deferred-work"></a>
 
 - **静态资源由应用拥有**——未从根路径提供两个 SVG 文件的组合会渲染损坏的图片。
-- **层顺序很重要**——`dsh-web-app` 必须位于本包之前，patch 才能禁用已经存在的官方配置行。
 - **浏览器标题独立控制**——`DSH_CLIENT_TITLE` 在 Slot 系统之外控制文档标题文本。
 
 <a id="dev-note"></a>

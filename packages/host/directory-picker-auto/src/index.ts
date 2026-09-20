@@ -57,11 +57,16 @@ export const SURFACE_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
  * surface as Loader entries; the effect's disposer removes both entries and
  * joins their fibers' teardown, so unloading this plugin returns only after
  * both faces of the mounted interaction (and their dependents) quiesced.
- * @param ctx - cordis context carrying the injected `webServer` and `loader`.
+ * @param ctx - Cordis context carrying the injected Loader service.
+ * @param bindHost - Effective client bind topology; Desktop supplies loopback.
+ * @returns Nothing after both interaction entries finish loading.
  */
-export async function apply(ctx: Context): Promise<void> {
+export async function mountDirectoryPickerInteraction(
+  ctx: Context,
+  bindHost: '127.0.0.1' | '0.0.0.0',
+): Promise<void> {
   const backend = resolveDirectoryPickerBackend({
-    bindHost: ctx.webServer.host,
+    bindHost,
     platform: process.platform,
     ssh: launchedThroughSsh(launchEnvironmentOf(ctx)),
     env: process.env,
@@ -101,4 +106,13 @@ export async function apply(ctx: Context): Promise<void> {
     }
     return unmount
   }, 'directory-picker-auto: interaction entries')
+}
+
+/**
+ * Resolve and mount one picker interaction for the web client.
+ * @param ctx - Cordis context carrying the injected webServer and Loader services.
+ * @returns Nothing after the selected interaction finishes loading.
+ */
+export async function apply(ctx: Context): Promise<void> {
+  await mountDirectoryPickerInteraction(ctx, ctx.webServer.host)
 }

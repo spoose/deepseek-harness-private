@@ -10,6 +10,9 @@ import {
 
 describe('desktop package target', () => {
   it('selects matching runtime and electron-builder architectures', () => {
+    expect(resolveDesktopPackageTarget('linux-arm64', 'linux', 'arm64')).toMatchObject({
+      platform: 'linux', arch: 'arm64', builderPlatform: '--linux', builderArch: '--arm64',
+    })
     expect(resolveDesktopPackageTarget('mac-arm64', 'darwin', 'arm64')).toMatchObject({
       platform: 'darwin', arch: 'arm64', builderPlatform: '--mac', builderArch: '--arm64',
     })
@@ -27,6 +30,8 @@ describe('desktop package target', () => {
 
   it('rejects unsupported targets and hosts before building', () => {
     expect(() => resolveDesktopPackageTarget('linux-x64', 'linux', 'x64')).toThrow(/unsupported target/u)
+    expect(() => resolveDesktopPackageTarget('linux-arm64', 'linux', 'x64')).toThrow(/Linux ARM64/u)
+    expect(() => resolveDesktopPackageTarget('linux-arm64', 'darwin', 'arm64')).toThrow(/Linux ARM64/u)
     expect(() => resolveDesktopPackageTarget('win-x64', 'darwin', 'arm64')).toThrow(/Windows x64/u)
     expect(() => resolveDesktopPackageTarget('mac-arm64', 'darwin', 'x64')).toThrow(/Apple Silicon/u)
     expect(() => resolveDesktopPackageTarget('mac-arm64', 'linux', 'arm64')).toThrow(/macOS/u)
@@ -40,6 +45,21 @@ describe('desktop package target', () => {
     expect(parseDesktopPackageInvocation(['--prepare-only'], 'darwin', 'arm64').prepareOnly).toBe(true)
     expect(() => parseDesktopPackageInvocation(['mac-arm64', 'mac-x64'], 'darwin', 'arm64'))
       .toThrow(/at most one target/u)
+    expect(parseDesktopPackageInvocation(['linux-arm64', '--prepare-only'], 'linux', 'arm64').prepareOnly).toBe(true)
+  })
+
+  it('limits Linux ARM64 packaging to local unsigned artifacts', () => {
+    expect(parseDesktopPackageInvocation(['linux-arm64', '--unsigned'], 'linux', 'arm64')).toMatchObject({
+      unsigned: true,
+      target: { name: 'linux-arm64' },
+    })
+    expect(parseDesktopPackageInvocation(['--unsigned', '--dir'], 'linux', 'arm64')).toMatchObject({
+      unsigned: true,
+      directory: true,
+      target: { name: 'linux-arm64' },
+    })
+    expect(() => parseDesktopPackageInvocation(['linux-arm64'], 'linux', 'arm64'))
+      .toThrow(/local unsigned packaging only/u)
   })
 
   it('keeps electron-builder publishing disabled for the separate validated upload', () => {
@@ -55,16 +75,22 @@ describe('desktop package target', () => {
       'never',
     ])
     expect(desktopElectronBuilderArguments(target, true)).toContain('--dir')
+    expect(desktopElectronBuilderArguments(
+      resolveDesktopPackageTarget('linux-arm64', 'linux', 'arm64'),
+      false,
+    )).toContain('--linux')
   })
 
-  it('accepts unsigned Windows artifacts and rejects other targets or preparation-only use', () => {
+  it('accepts local unsigned artifacts and rejects preparation-only use', () => {
     expect(parseDesktopPackageInvocation(['win-x64', '--unsigned'], 'win32', 'x64').unsigned).toBe(true)
     expect(parseDesktopPackageInvocation(['win-x64'], 'win32', 'x64').unsigned).toBe(false)
     expect(parseDesktopPackageInvocation(['--unsigned', '--dir'], 'win32', 'x64')).toMatchObject({
       unsigned: true, directory: true,
     })
-    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--unsigned'], 'darwin', 'arm64'))
-      .toThrow(/requires win-x64/u)
+    for (const target of ['mac-arm64', 'mac-x64']) {
+      expect(parseDesktopPackageInvocation([target, '--unsigned', '--dir'], 'darwin', 'arm64'))
+        .toMatchObject({ unsigned: true, directory: true })
+    }
     expect(() => parseDesktopPackageInvocation(['--unsigned', '--prepare-only'], 'win32', 'x64'))
       .toThrow(/cannot use --prepare-only/u)
   })
@@ -76,6 +102,10 @@ describe('desktop package target', () => {
       CSC_LINK: 'private.pfx',
       CSC_KEY_PASSWORD: 'secret',
       WIN_CSC_LINK: 'windows.pfx',
+      APPLE_API_KEY: '/private/key.p8',
+      APPLE_KEYCHAIN_PROFILE: 'release',
+      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Release Company',
+      DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
       CSC_IDENTITY_AUTO_DISCOVERY: 'true',
       DSH_DESKTOP_UNSIGNED: '1',
     }
